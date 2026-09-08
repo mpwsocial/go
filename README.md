@@ -1,9 +1,5 @@
 # MoiPayWay Go SDK
 
-Official Go SDK for the [MoiPayWay API](https://documenter.getpostman.com/view/11919136/2s93Joz7Bq).
-
-Use this client to call every endpoint in that collection: wallets, collections, transfers, users, verification, cards, catalogs, omnichain, and the rest of the documented surface.
-
 ```bash
 go get github.com/mpwsocial/go
 ```
@@ -24,13 +20,7 @@ func main() {
 		log.Fatal(err)
 	}
 
-	countries, err := client.Countries()
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(countries["status"])
-
-	wallet, err := client.CreateWallet(map[string]any{
+	wallet, err := client.Wallet.Create(map[string]any{
 		"code": "NGN",
 		"meta": map[string]any{"name": "Operations", "user_id": "user-uuid"},
 	})
@@ -41,24 +31,16 @@ func main() {
 }
 ```
 
-## API docs
+Collection paths are methods on the client:
 
-Paths, methods, and request bodies are in the public collection:
+- `POST wallet/create` → `client.Wallet.Create(body)`
+- `POST wallet/collection/initiate` → `client.Wallet.Collection.Initiate(body)`
+- `POST user/account/individual/create` → `client.User.Account.Individual.Create(body)`
+- `GET user/misc/job-types` → `client.User.Misc.JobTypes(nil)`
+- `POST verification/lookup` → `client.Verification.Lookup(body)`
+- `POST omnichain/wallet/evm/eoa/create-wallet` → `client.Omnichain.Wallet.Evm.Eoa.CreateWallet(body)`
 
-[MoiPayWay API (Postman)](https://documenter.getpostman.com/view/11919136/2s93Joz7Bq)
-
-Call any of those endpoints with `Request()`:
-
-```go
-client.Request("POST", "wallet/details", map[string]any{"wallet_id": "..."}, true)
-client.Request("GET", "user/misc/countries", nil, false)
-```
-
-- `test` → `https://dev.moipayway.co`
-- `live` → `https://api.moipayway.co`
-- Auth: `Authorization: Bearer <api_key>` (pass `auth=false` for documented catalog GETs)
-
-## Webhooks
+`test` uses `https://dev.moipayway.co`. `live` uses `https://api.moipayway.co`.
 
 ```go
 ok := moipayway.VerifyWebhook(rawBody, signatureHeader, timestampHeader, apiKey, 300)
