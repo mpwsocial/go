@@ -23,15 +23,16 @@ type Client struct {
 	APIKey         string
 	Environment    string
 	HTTP           *http.Client
-	Account        *Account
+	Account *Account
 	Authentication *Authentication
-	Card           *Card
-	Misc           *Misc
-	Omnichain      *Omnichain
-	Simulation     *Simulation
-	User           *User
-	Verification   *Verification
-	Wallet         *Wallet
+	Card *Card
+	Misc *Misc
+	Omnichain *Omnichain
+	Simulation *Simulation
+	System *System
+	User *User
+	Verification *Verification
+	Wallet *Wallet
 }
 
 type APIError struct {
@@ -63,6 +64,7 @@ func New(apiKey, environment string) (*Client, error) {
 	c.Misc = newMisc(c)
 	c.Omnichain = newOmnichain(c)
 	c.Simulation = newSimulation(c)
+	c.System = newSystem(c)
 	c.User = newUser(c)
 	c.Verification = newVerification(c)
 	c.Wallet = newWallet(c)
@@ -111,17 +113,11 @@ func (c *Client) Request(method, path string, body map[string]any, auth bool) (m
 		return nil, err
 	}
 	var decoded map[string]any
-	if len(raw) > 0 {
-		if err := json.Unmarshal(raw, &decoded); err != nil {
-			return nil, &APIError{Message: "Invalid JSON response", HTTPStatus: res.StatusCode}
-		}
-	}
-	if decoded == nil {
-		decoded = map[string]any{}
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		return nil, &APIError{Message: "Invalid JSON response", HTTPStatus: res.StatusCode}
 	}
 	status, _ := decoded["status"].(string)
-	status = strings.ToLower(status)
-	if status == "failed" || status == "error" {
+	if strings.EqualFold(status, "failed") || strings.EqualFold(status, "error") {
 		msg, _ := decoded["message"].(string)
 		if msg == "" {
 			msg = "Request failed"
@@ -139,14 +135,12 @@ func VerifyWebhook(rawBody, signatureHeader, timestampHeader, apiKey string, tol
 	if err != nil {
 		return false
 	}
-	if toleranceSeconds > 0 {
-		age := time.Now().Unix() - ts
-		if age < 0 {
-			age = -age
-		}
-		if age > int64(toleranceSeconds) {
-			return false
-		}
+	age := time.Now().Unix() - ts
+	if age < 0 {
+		age = -age
+	}
+	if toleranceSeconds > 0 && age > int64(toleranceSeconds) {
+		return false
 	}
 	provided := signatureHeader
 	if strings.HasPrefix(strings.ToLower(provided), "sha256=") {
@@ -159,336 +153,45 @@ func VerifyWebhook(rawBody, signatureHeader, timestampHeader, apiKey string, tol
 }
 
 type Account struct {
-	c        *Client
+	c *Client
 	Merchant *AccountMerchant
-}
-
-type AccountMerchant struct {
-	c       *Client
-	Product *AccountMerchantProduct
-	Team    *AccountMerchantTeam
-}
-
-type AccountMerchantProduct struct {
-	c            *Client
-	Subscription *AccountMerchantProductSubscription
-}
-
-type AccountMerchantProductSubscription struct {
-	c *Client
-}
-
-type AccountMerchantTeam struct {
-	c          *Client
-	Permission *AccountMerchantTeamPermission
-}
-
-type AccountMerchantTeamPermission struct {
-	c *Client
-}
-
-type Authentication struct {
-	c *Client
-}
-
-type Card struct {
-	c *Client
-}
-
-type Misc struct {
-	c *Client
-}
-
-type Omnichain struct {
-	c            *Client
-	Storage      *OmnichainStorage
-	Tokenization *OmnichainTokenization
-	Wallet       *OmnichainWallet
-}
-
-type OmnichainStorage struct {
-	c *Client
-}
-
-type OmnichainTokenization struct {
-	c       *Client
-	Erc1155 *OmnichainTokenizationErc1155
-	Erc20   *OmnichainTokenizationErc20
-	Erc721  *OmnichainTokenizationErc721
-	Sep41   *OmnichainTokenizationSep41
-}
-
-type OmnichainTokenizationErc1155 struct {
-	c *Client
-}
-
-type OmnichainTokenizationErc20 struct {
-	c *Client
-}
-
-type OmnichainTokenizationErc721 struct {
-	c *Client
-}
-
-type OmnichainTokenizationSep41 struct {
-	c *Client
-}
-
-type OmnichainWallet struct {
-	c       *Client
-	Evm     *OmnichainWalletEvm
-	Stellar *OmnichainWalletStellar
-}
-
-type OmnichainWalletEvm struct {
-	c   *Client
-	Eoa *OmnichainWalletEvmEoa
-}
-
-type OmnichainWalletEvmEoa struct {
-	c          *Client
-	Operations *OmnichainWalletEvmEoaOperations
-	Transfer   *OmnichainWalletEvmEoaTransfer
-}
-
-type OmnichainWalletEvmEoaOperations struct {
-	c *Client
-}
-
-type OmnichainWalletEvmEoaTransfer struct {
-	c *Client
-}
-
-type OmnichainWalletStellar struct {
-	c   *Client
-	Eoa *OmnichainWalletStellarEoa
-}
-
-type OmnichainWalletStellarEoa struct {
-	c          *Client
-	Operations *OmnichainWalletStellarEoaOperations
-	Transfer   *OmnichainWalletStellarEoaTransfer
-}
-
-type OmnichainWalletStellarEoaOperations struct {
-	c *Client
-}
-
-type OmnichainWalletStellarEoaTransfer struct {
-	c *Client
-}
-
-type Simulation struct {
-	c           *Client
-	Card        *SimulationCard
-	Collection  *SimulationCollection
-	DirectDebit *SimulationDirectDebit
-	Transfer    *SimulationTransfer
-}
-
-type SimulationCard struct {
-	c *Client
-}
-
-type SimulationCollection struct {
-	c *Client
-}
-
-type SimulationDirectDebit struct {
-	c *Client
-}
-
-type SimulationTransfer struct {
-	c *Client
-}
-
-type User struct {
-	c            *Client
-	Account      *UserAccount
-	Misc         *UserMisc
-	Subscription *UserSubscription
-	Verification *UserVerification
-}
-
-type UserAccount struct {
-	c          *Client
-	Business   *UserAccountBusiness
-	Individual *UserAccountIndividual
-}
-
-type UserAccountBusiness struct {
-	c *Client
-}
-
-type UserAccountIndividual struct {
-	c *Client
-}
-
-type UserMisc struct {
-	c *Client
-}
-
-type UserSubscription struct {
-	c *Client
-}
-
-type UserVerification struct {
-	c *Client
-}
-
-type Verification struct {
-	c *Client
-}
-
-type Wallet struct {
-	c          *Client
-	Channel    *WalletChannel
-	Collection *WalletCollection
-	Exchange   *WalletExchange
-	Mpwt       *WalletMpwt
-	Transfer   *WalletTransfer
-}
-
-type WalletChannel struct {
-	c                 *Client
-	TransferRecipient *WalletChannelTransferRecipient
-	VirtualAccount    *WalletChannelVirtualAccount
-	WalletAddress     *WalletChannelWalletAddress
-}
-
-type WalletChannelTransferRecipient struct {
-	c             *Client
-	Bank          *WalletChannelTransferRecipientBank
-	MobileMoney   *WalletChannelTransferRecipientMobileMoney
-	WalletAddress *WalletChannelTransferRecipientWalletAddress
-}
-
-type WalletChannelTransferRecipientBank struct {
-	c *Client
-}
-
-type WalletChannelTransferRecipientMobileMoney struct {
-	c *Client
-}
-
-type WalletChannelTransferRecipientWalletAddress struct {
-	c *Client
-}
-
-type WalletChannelVirtualAccount struct {
-	c *Client
-}
-
-type WalletChannelWalletAddress struct {
-	c *Client
-}
-
-type WalletCollection struct {
-	c      *Client
-	Method *WalletCollectionMethod
-}
-
-type WalletCollectionMethod struct {
-	c *Client
-}
-
-type WalletExchange struct {
-	c              *Client
-	Cryptotocrypto *WalletExchangeCryptotocrypto
-	Cryptotofiat   *WalletExchangeCryptotofiat
-	Fiattocrypto   *WalletExchangeFiattocrypto
-	Fiattofiat     *WalletExchangeFiattofiat
-}
-
-type WalletExchangeCryptotocrypto struct {
-	c        *Client
-	External *WalletExchangeCryptotocryptoExternal
-}
-
-type WalletExchangeCryptotocryptoExternal struct {
-	c      *Client
-	Bridge *WalletExchangeCryptotocryptoExternalBridge
-	Swap   *WalletExchangeCryptotocryptoExternalSwap
-}
-
-type WalletExchangeCryptotocryptoExternalBridge struct {
-	c    *Client
-	Usdc *WalletExchangeCryptotocryptoExternalBridgeUsdc
-}
-
-type WalletExchangeCryptotocryptoExternalBridgeUsdc struct {
-	c *Client
-}
-
-type WalletExchangeCryptotocryptoExternalSwap struct {
-	c *Client
-}
-
-type WalletExchangeCryptotofiat struct {
-	c        *Client
-	External *WalletExchangeCryptotofiatExternal
-}
-
-type WalletExchangeCryptotofiatExternal struct {
-	c *Client
-}
-
-type WalletExchangeFiattocrypto struct {
-	c      *Client
-	Wallet *WalletExchangeFiattocryptoWallet
-}
-
-type WalletExchangeFiattocryptoWallet struct {
-	c *Client
-}
-
-type WalletExchangeFiattofiat struct {
-	c      *Client
-	Wallet *WalletExchangeFiattofiatWallet
-}
-
-type WalletExchangeFiattofiatWallet struct {
-	c *Client
-}
-
-type WalletMpwt struct {
-	c *Client
-}
-
-type WalletTransfer struct {
-	c      *Client
-	Cross  *WalletTransferCross
-	Direct *WalletTransferDirect
-}
-
-type WalletTransferCross struct {
-	c *Client
-}
-
-type WalletTransferDirect struct {
-	c *Client
 }
 
 func newAccount(c *Client) *Account {
 	return &Account{
-		c:        c,
+		c: c,
 		Merchant: newAccountMerchant(c),
 	}
 }
 
+type AccountMerchant struct {
+	c *Client
+	Product *AccountMerchantProduct
+	Team *AccountMerchantTeam
+}
+
 func newAccountMerchant(c *Client) *AccountMerchant {
 	return &AccountMerchant{
-		c:       c,
+		c: c,
 		Product: newAccountMerchantProduct(c),
-		Team:    newAccountMerchantTeam(c),
+		Team: newAccountMerchantTeam(c),
 	}
+}
+
+type AccountMerchantProduct struct {
+	c *Client
+	Subscription *AccountMerchantProductSubscription
 }
 
 func newAccountMerchantProduct(c *Client) *AccountMerchantProduct {
 	return &AccountMerchantProduct{
-		c:            c,
+		c: c,
 		Subscription: newAccountMerchantProductSubscription(c),
 	}
+}
+
+type AccountMerchantProductSubscription struct {
+	c *Client
 }
 
 func newAccountMerchantProductSubscription(c *Client) *AccountMerchantProductSubscription {
@@ -497,11 +200,20 @@ func newAccountMerchantProductSubscription(c *Client) *AccountMerchantProductSub
 	}
 }
 
+type AccountMerchantTeam struct {
+	c *Client
+	Permission *AccountMerchantTeamPermission
+}
+
 func newAccountMerchantTeam(c *Client) *AccountMerchantTeam {
 	return &AccountMerchantTeam{
-		c:          c,
+		c: c,
 		Permission: newAccountMerchantTeamPermission(c),
 	}
+}
+
+type AccountMerchantTeamPermission struct {
+	c *Client
 }
 
 func newAccountMerchantTeamPermission(c *Client) *AccountMerchantTeamPermission {
@@ -510,10 +222,18 @@ func newAccountMerchantTeamPermission(c *Client) *AccountMerchantTeamPermission 
 	}
 }
 
+type Authentication struct {
+	c *Client
+}
+
 func newAuthentication(c *Client) *Authentication {
 	return &Authentication{
 		c: c,
 	}
+}
+
+type Card struct {
+	c *Client
 }
 
 func newCard(c *Client) *Card {
@@ -522,19 +242,34 @@ func newCard(c *Client) *Card {
 	}
 }
 
+type Misc struct {
+	c *Client
+}
+
 func newMisc(c *Client) *Misc {
 	return &Misc{
 		c: c,
 	}
 }
 
+type Omnichain struct {
+	c *Client
+	Storage *OmnichainStorage
+	Tokenization *OmnichainTokenization
+	Wallet *OmnichainWallet
+}
+
 func newOmnichain(c *Client) *Omnichain {
 	return &Omnichain{
-		c:            c,
-		Storage:      newOmnichainStorage(c),
+		c: c,
+		Storage: newOmnichainStorage(c),
 		Tokenization: newOmnichainTokenization(c),
-		Wallet:       newOmnichainWallet(c),
+		Wallet: newOmnichainWallet(c),
 	}
+}
+
+type OmnichainStorage struct {
+	c *Client
 }
 
 func newOmnichainStorage(c *Client) *OmnichainStorage {
@@ -543,14 +278,32 @@ func newOmnichainStorage(c *Client) *OmnichainStorage {
 	}
 }
 
+type OmnichainTokenization struct {
+	c *Client
+	Erc1155 *OmnichainTokenizationErc1155
+	Erc20 *OmnichainTokenizationErc20
+	Erc721 *OmnichainTokenizationErc721
+	Platform *OmnichainTokenizationPlatform
+	Sep41 *OmnichainTokenizationSep41
+	Standards *OmnichainTokenizationStandards
+	System *OmnichainTokenizationSystem
+}
+
 func newOmnichainTokenization(c *Client) *OmnichainTokenization {
 	return &OmnichainTokenization{
-		c:       c,
+		c: c,
 		Erc1155: newOmnichainTokenizationErc1155(c),
-		Erc20:   newOmnichainTokenizationErc20(c),
-		Erc721:  newOmnichainTokenizationErc721(c),
-		Sep41:   newOmnichainTokenizationSep41(c),
+		Erc20: newOmnichainTokenizationErc20(c),
+		Erc721: newOmnichainTokenizationErc721(c),
+		Platform: newOmnichainTokenizationPlatform(c),
+		Sep41: newOmnichainTokenizationSep41(c),
+		Standards: newOmnichainTokenizationStandards(c),
+		System: newOmnichainTokenizationSystem(c),
 	}
+}
+
+type OmnichainTokenizationErc1155 struct {
+	c *Client
 }
 
 func newOmnichainTokenizationErc1155(c *Client) *OmnichainTokenizationErc1155 {
@@ -559,10 +312,18 @@ func newOmnichainTokenizationErc1155(c *Client) *OmnichainTokenizationErc1155 {
 	}
 }
 
+type OmnichainTokenizationErc20 struct {
+	c *Client
+}
+
 func newOmnichainTokenizationErc20(c *Client) *OmnichainTokenizationErc20 {
 	return &OmnichainTokenizationErc20{
 		c: c,
 	}
+}
+
+type OmnichainTokenizationErc721 struct {
+	c *Client
 }
 
 func newOmnichainTokenizationErc721(c *Client) *OmnichainTokenizationErc721 {
@@ -571,33 +332,222 @@ func newOmnichainTokenizationErc721(c *Client) *OmnichainTokenizationErc721 {
 	}
 }
 
+type OmnichainTokenizationPlatform struct {
+	c *Client
+	Asset *OmnichainTokenizationPlatformAsset
+	Audit *OmnichainTokenizationPlatformAudit
+	Dvp *OmnichainTokenizationPlatformDvp
+	Events *OmnichainTokenizationPlatformEvents
+	Fx *OmnichainTokenizationPlatformFx
+	Ops *OmnichainTokenizationPlatformOps
+	Reconciliation *OmnichainTokenizationPlatformReconciliation
+}
+
+func newOmnichainTokenizationPlatform(c *Client) *OmnichainTokenizationPlatform {
+	return &OmnichainTokenizationPlatform{
+		c: c,
+		Asset: newOmnichainTokenizationPlatformAsset(c),
+		Audit: newOmnichainTokenizationPlatformAudit(c),
+		Dvp: newOmnichainTokenizationPlatformDvp(c),
+		Events: newOmnichainTokenizationPlatformEvents(c),
+		Fx: newOmnichainTokenizationPlatformFx(c),
+		Ops: newOmnichainTokenizationPlatformOps(c),
+		Reconciliation: newOmnichainTokenizationPlatformReconciliation(c),
+	}
+}
+
+type OmnichainTokenizationPlatformAsset struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformAsset(c *Client) *OmnichainTokenizationPlatformAsset {
+	return &OmnichainTokenizationPlatformAsset{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformAudit struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformAudit(c *Client) *OmnichainTokenizationPlatformAudit {
+	return &OmnichainTokenizationPlatformAudit{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformDvp struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformDvp(c *Client) *OmnichainTokenizationPlatformDvp {
+	return &OmnichainTokenizationPlatformDvp{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformEvents struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformEvents(c *Client) *OmnichainTokenizationPlatformEvents {
+	return &OmnichainTokenizationPlatformEvents{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformFx struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformFx(c *Client) *OmnichainTokenizationPlatformFx {
+	return &OmnichainTokenizationPlatformFx{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformOps struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformOps(c *Client) *OmnichainTokenizationPlatformOps {
+	return &OmnichainTokenizationPlatformOps{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationPlatformReconciliation struct {
+	c *Client
+}
+
+func newOmnichainTokenizationPlatformReconciliation(c *Client) *OmnichainTokenizationPlatformReconciliation {
+	return &OmnichainTokenizationPlatformReconciliation{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationSep41 struct {
+	c *Client
+}
+
 func newOmnichainTokenizationSep41(c *Client) *OmnichainTokenizationSep41 {
 	return &OmnichainTokenizationSep41{
 		c: c,
 	}
 }
 
+type OmnichainTokenizationStandards struct {
+	c *Client
+	Erc1155 *OmnichainTokenizationStandardsErc1155
+	Erc20 *OmnichainTokenizationStandardsErc20
+	Erc721 *OmnichainTokenizationStandardsErc721
+	Sep41 *OmnichainTokenizationStandardsSep41
+}
+
+func newOmnichainTokenizationStandards(c *Client) *OmnichainTokenizationStandards {
+	return &OmnichainTokenizationStandards{
+		c: c,
+		Erc1155: newOmnichainTokenizationStandardsErc1155(c),
+		Erc20: newOmnichainTokenizationStandardsErc20(c),
+		Erc721: newOmnichainTokenizationStandardsErc721(c),
+		Sep41: newOmnichainTokenizationStandardsSep41(c),
+	}
+}
+
+type OmnichainTokenizationStandardsErc1155 struct {
+	c *Client
+}
+
+func newOmnichainTokenizationStandardsErc1155(c *Client) *OmnichainTokenizationStandardsErc1155 {
+	return &OmnichainTokenizationStandardsErc1155{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationStandardsErc20 struct {
+	c *Client
+}
+
+func newOmnichainTokenizationStandardsErc20(c *Client) *OmnichainTokenizationStandardsErc20 {
+	return &OmnichainTokenizationStandardsErc20{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationStandardsErc721 struct {
+	c *Client
+}
+
+func newOmnichainTokenizationStandardsErc721(c *Client) *OmnichainTokenizationStandardsErc721 {
+	return &OmnichainTokenizationStandardsErc721{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationStandardsSep41 struct {
+	c *Client
+}
+
+func newOmnichainTokenizationStandardsSep41(c *Client) *OmnichainTokenizationStandardsSep41 {
+	return &OmnichainTokenizationStandardsSep41{
+		c: c,
+	}
+}
+
+type OmnichainTokenizationSystem struct {
+	c *Client
+}
+
+func newOmnichainTokenizationSystem(c *Client) *OmnichainTokenizationSystem {
+	return &OmnichainTokenizationSystem{
+		c: c,
+	}
+}
+
+type OmnichainWallet struct {
+	c *Client
+	Evm *OmnichainWalletEvm
+	Policy *OmnichainWalletPolicy
+	Stellar *OmnichainWalletStellar
+}
+
 func newOmnichainWallet(c *Client) *OmnichainWallet {
 	return &OmnichainWallet{
-		c:       c,
-		Evm:     newOmnichainWalletEvm(c),
+		c: c,
+		Evm: newOmnichainWalletEvm(c),
+		Policy: newOmnichainWalletPolicy(c),
 		Stellar: newOmnichainWalletStellar(c),
 	}
 }
 
+type OmnichainWalletEvm struct {
+	c *Client
+	Eoa *OmnichainWalletEvmEoa
+}
+
 func newOmnichainWalletEvm(c *Client) *OmnichainWalletEvm {
 	return &OmnichainWalletEvm{
-		c:   c,
+		c: c,
 		Eoa: newOmnichainWalletEvmEoa(c),
 	}
 }
 
+type OmnichainWalletEvmEoa struct {
+	c *Client
+	Operations *OmnichainWalletEvmEoaOperations
+	Transfer *OmnichainWalletEvmEoaTransfer
+}
+
 func newOmnichainWalletEvmEoa(c *Client) *OmnichainWalletEvmEoa {
 	return &OmnichainWalletEvmEoa{
-		c:          c,
+		c: c,
 		Operations: newOmnichainWalletEvmEoaOperations(c),
-		Transfer:   newOmnichainWalletEvmEoaTransfer(c),
+		Transfer: newOmnichainWalletEvmEoaTransfer(c),
 	}
+}
+
+type OmnichainWalletEvmEoaOperations struct {
+	c *Client
 }
 
 func newOmnichainWalletEvmEoaOperations(c *Client) *OmnichainWalletEvmEoaOperations {
@@ -606,25 +556,54 @@ func newOmnichainWalletEvmEoaOperations(c *Client) *OmnichainWalletEvmEoaOperati
 	}
 }
 
+type OmnichainWalletEvmEoaTransfer struct {
+	c *Client
+}
+
 func newOmnichainWalletEvmEoaTransfer(c *Client) *OmnichainWalletEvmEoaTransfer {
 	return &OmnichainWalletEvmEoaTransfer{
 		c: c,
 	}
 }
 
+type OmnichainWalletPolicy struct {
+	c *Client
+}
+
+func newOmnichainWalletPolicy(c *Client) *OmnichainWalletPolicy {
+	return &OmnichainWalletPolicy{
+		c: c,
+	}
+}
+
+type OmnichainWalletStellar struct {
+	c *Client
+	Eoa *OmnichainWalletStellarEoa
+}
+
 func newOmnichainWalletStellar(c *Client) *OmnichainWalletStellar {
 	return &OmnichainWalletStellar{
-		c:   c,
+		c: c,
 		Eoa: newOmnichainWalletStellarEoa(c),
 	}
 }
 
+type OmnichainWalletStellarEoa struct {
+	c *Client
+	Operations *OmnichainWalletStellarEoaOperations
+	Transfer *OmnichainWalletStellarEoaTransfer
+}
+
 func newOmnichainWalletStellarEoa(c *Client) *OmnichainWalletStellarEoa {
 	return &OmnichainWalletStellarEoa{
-		c:          c,
+		c: c,
 		Operations: newOmnichainWalletStellarEoaOperations(c),
-		Transfer:   newOmnichainWalletStellarEoaTransfer(c),
+		Transfer: newOmnichainWalletStellarEoaTransfer(c),
 	}
+}
+
+type OmnichainWalletStellarEoaOperations struct {
+	c *Client
 }
 
 func newOmnichainWalletStellarEoaOperations(c *Client) *OmnichainWalletStellarEoaOperations {
@@ -633,20 +612,36 @@ func newOmnichainWalletStellarEoaOperations(c *Client) *OmnichainWalletStellarEo
 	}
 }
 
+type OmnichainWalletStellarEoaTransfer struct {
+	c *Client
+}
+
 func newOmnichainWalletStellarEoaTransfer(c *Client) *OmnichainWalletStellarEoaTransfer {
 	return &OmnichainWalletStellarEoaTransfer{
 		c: c,
 	}
 }
 
+type Simulation struct {
+	c *Client
+	Card *SimulationCard
+	Collection *SimulationCollection
+	DirectDebit *SimulationDirectDebit
+	Transfer *SimulationTransfer
+}
+
 func newSimulation(c *Client) *Simulation {
 	return &Simulation{
-		c:           c,
-		Card:        newSimulationCard(c),
-		Collection:  newSimulationCollection(c),
+		c: c,
+		Card: newSimulationCard(c),
+		Collection: newSimulationCollection(c),
 		DirectDebit: newSimulationDirectDebit(c),
-		Transfer:    newSimulationTransfer(c),
+		Transfer: newSimulationTransfer(c),
 	}
+}
+
+type SimulationCard struct {
+	c *Client
 }
 
 func newSimulationCard(c *Client) *SimulationCard {
@@ -655,10 +650,18 @@ func newSimulationCard(c *Client) *SimulationCard {
 	}
 }
 
+type SimulationCollection struct {
+	c *Client
+}
+
 func newSimulationCollection(c *Client) *SimulationCollection {
 	return &SimulationCollection{
 		c: c,
 	}
+}
+
+type SimulationDirectDebit struct {
+	c *Client
 }
 
 func newSimulationDirectDebit(c *Client) *SimulationDirectDebit {
@@ -667,28 +670,84 @@ func newSimulationDirectDebit(c *Client) *SimulationDirectDebit {
 	}
 }
 
+type SimulationTransfer struct {
+	c *Client
+}
+
 func newSimulationTransfer(c *Client) *SimulationTransfer {
 	return &SimulationTransfer{
 		c: c,
 	}
 }
 
+type System struct {
+	c *Client
+	Merchant *SystemMerchant
+}
+
+func newSystem(c *Client) *System {
+	return &System{
+		c: c,
+		Merchant: newSystemMerchant(c),
+	}
+}
+
+type SystemMerchant struct {
+	c *Client
+	ProductSetting *SystemMerchantProductSetting
+}
+
+func newSystemMerchant(c *Client) *SystemMerchant {
+	return &SystemMerchant{
+		c: c,
+		ProductSetting: newSystemMerchantProductSetting(c),
+	}
+}
+
+type SystemMerchantProductSetting struct {
+	c *Client
+}
+
+func newSystemMerchantProductSetting(c *Client) *SystemMerchantProductSetting {
+	return &SystemMerchantProductSetting{
+		c: c,
+	}
+}
+
+type User struct {
+	c *Client
+	Account *UserAccount
+	Misc *UserMisc
+	Subscription *UserSubscription
+	Verification *UserVerification
+}
+
 func newUser(c *Client) *User {
 	return &User{
-		c:            c,
-		Account:      newUserAccount(c),
-		Misc:         newUserMisc(c),
+		c: c,
+		Account: newUserAccount(c),
+		Misc: newUserMisc(c),
 		Subscription: newUserSubscription(c),
 		Verification: newUserVerification(c),
 	}
 }
 
+type UserAccount struct {
+	c *Client
+	Business *UserAccountBusiness
+	Individual *UserAccountIndividual
+}
+
 func newUserAccount(c *Client) *UserAccount {
 	return &UserAccount{
-		c:          c,
-		Business:   newUserAccountBusiness(c),
+		c: c,
+		Business: newUserAccountBusiness(c),
 		Individual: newUserAccountIndividual(c),
 	}
+}
+
+type UserAccountBusiness struct {
+	c *Client
 }
 
 func newUserAccountBusiness(c *Client) *UserAccountBusiness {
@@ -697,10 +756,18 @@ func newUserAccountBusiness(c *Client) *UserAccountBusiness {
 	}
 }
 
+type UserAccountIndividual struct {
+	c *Client
+}
+
 func newUserAccountIndividual(c *Client) *UserAccountIndividual {
 	return &UserAccountIndividual{
 		c: c,
 	}
+}
+
+type UserMisc struct {
+	c *Client
 }
 
 func newUserMisc(c *Client) *UserMisc {
@@ -709,10 +776,18 @@ func newUserMisc(c *Client) *UserMisc {
 	}
 }
 
+type UserSubscription struct {
+	c *Client
+}
+
 func newUserSubscription(c *Client) *UserSubscription {
 	return &UserSubscription{
 		c: c,
 	}
+}
+
+type UserVerification struct {
+	c *Client
 }
 
 func newUserVerification(c *Client) *UserVerification {
@@ -721,39 +796,92 @@ func newUserVerification(c *Client) *UserVerification {
 	}
 }
 
+type Verification struct {
+	c *Client
+}
+
 func newVerification(c *Client) *Verification {
 	return &Verification{
 		c: c,
 	}
 }
 
+type Wallet struct {
+	c *Client
+	Channel *WalletChannel
+	Collection *WalletCollection
+	Exchange *WalletExchange
+	Mpwt *WalletMpwt
+	Transfer *WalletTransfer
+}
+
 func newWallet(c *Client) *Wallet {
 	return &Wallet{
-		c:          c,
-		Channel:    newWalletChannel(c),
+		c: c,
+		Channel: newWalletChannel(c),
 		Collection: newWalletCollection(c),
-		Exchange:   newWalletExchange(c),
-		Mpwt:       newWalletMpwt(c),
-		Transfer:   newWalletTransfer(c),
+		Exchange: newWalletExchange(c),
+		Mpwt: newWalletMpwt(c),
+		Transfer: newWalletTransfer(c),
 	}
+}
+
+type WalletChannel struct {
+	c *Client
+	BankAccount *WalletChannelBankAccount
+	TransferRecipient *WalletChannelTransferRecipient
+	WalletAddress *WalletChannelWalletAddress
 }
 
 func newWalletChannel(c *Client) *WalletChannel {
 	return &WalletChannel{
-		c:                 c,
+		c: c,
+		BankAccount: newWalletChannelBankAccount(c),
 		TransferRecipient: newWalletChannelTransferRecipient(c),
-		VirtualAccount:    newWalletChannelVirtualAccount(c),
-		WalletAddress:     newWalletChannelWalletAddress(c),
+		WalletAddress: newWalletChannelWalletAddress(c),
 	}
+}
+
+type WalletChannelBankAccount struct {
+	c *Client
+	ComplianceRequest *WalletChannelBankAccountComplianceRequest
+}
+
+func newWalletChannelBankAccount(c *Client) *WalletChannelBankAccount {
+	return &WalletChannelBankAccount{
+		c: c,
+		ComplianceRequest: newWalletChannelBankAccountComplianceRequest(c),
+	}
+}
+
+type WalletChannelBankAccountComplianceRequest struct {
+	c *Client
+}
+
+func newWalletChannelBankAccountComplianceRequest(c *Client) *WalletChannelBankAccountComplianceRequest {
+	return &WalletChannelBankAccountComplianceRequest{
+		c: c,
+	}
+}
+
+type WalletChannelTransferRecipient struct {
+	c *Client
+	Bank *WalletChannelTransferRecipientBank
+	MobileMoney *WalletChannelTransferRecipientMobileMoney
+	WalletAddress *WalletChannelTransferRecipientWalletAddress
 }
 
 func newWalletChannelTransferRecipient(c *Client) *WalletChannelTransferRecipient {
 	return &WalletChannelTransferRecipient{
-		c:             c,
-		Bank:          newWalletChannelTransferRecipientBank(c),
-		MobileMoney:   newWalletChannelTransferRecipientMobileMoney(c),
+		c: c,
+		Bank: newWalletChannelTransferRecipientBank(c),
+		MobileMoney: newWalletChannelTransferRecipientMobileMoney(c),
 		WalletAddress: newWalletChannelTransferRecipientWalletAddress(c),
 	}
+}
+
+type WalletChannelTransferRecipientBank struct {
+	c *Client
 }
 
 func newWalletChannelTransferRecipientBank(c *Client) *WalletChannelTransferRecipientBank {
@@ -762,10 +890,18 @@ func newWalletChannelTransferRecipientBank(c *Client) *WalletChannelTransferReci
 	}
 }
 
+type WalletChannelTransferRecipientMobileMoney struct {
+	c *Client
+}
+
 func newWalletChannelTransferRecipientMobileMoney(c *Client) *WalletChannelTransferRecipientMobileMoney {
 	return &WalletChannelTransferRecipientMobileMoney{
 		c: c,
 	}
+}
+
+type WalletChannelTransferRecipientWalletAddress struct {
+	c *Client
 }
 
 func newWalletChannelTransferRecipientWalletAddress(c *Client) *WalletChannelTransferRecipientWalletAddress {
@@ -774,10 +910,8 @@ func newWalletChannelTransferRecipientWalletAddress(c *Client) *WalletChannelTra
 	}
 }
 
-func newWalletChannelVirtualAccount(c *Client) *WalletChannelVirtualAccount {
-	return &WalletChannelVirtualAccount{
-		c: c,
-	}
+type WalletChannelWalletAddress struct {
+	c *Client
 }
 
 func newWalletChannelWalletAddress(c *Client) *WalletChannelWalletAddress {
@@ -786,11 +920,20 @@ func newWalletChannelWalletAddress(c *Client) *WalletChannelWalletAddress {
 	}
 }
 
+type WalletCollection struct {
+	c *Client
+	Method *WalletCollectionMethod
+}
+
 func newWalletCollection(c *Client) *WalletCollection {
 	return &WalletCollection{
-		c:      c,
+		c: c,
 		Method: newWalletCollectionMethod(c),
 	}
+}
+
+type WalletCollectionMethod struct {
+	c *Client
 }
 
 func newWalletCollectionMethod(c *Client) *WalletCollectionMethod {
@@ -799,36 +942,66 @@ func newWalletCollectionMethod(c *Client) *WalletCollectionMethod {
 	}
 }
 
+type WalletExchange struct {
+	c *Client
+	Cryptotocrypto *WalletExchangeCryptotocrypto
+	Cryptotofiat *WalletExchangeCryptotofiat
+	Fiattocrypto *WalletExchangeFiattocrypto
+	Fiattofiat *WalletExchangeFiattofiat
+}
+
 func newWalletExchange(c *Client) *WalletExchange {
 	return &WalletExchange{
-		c:              c,
+		c: c,
 		Cryptotocrypto: newWalletExchangeCryptotocrypto(c),
-		Cryptotofiat:   newWalletExchangeCryptotofiat(c),
-		Fiattocrypto:   newWalletExchangeFiattocrypto(c),
-		Fiattofiat:     newWalletExchangeFiattofiat(c),
+		Cryptotofiat: newWalletExchangeCryptotofiat(c),
+		Fiattocrypto: newWalletExchangeFiattocrypto(c),
+		Fiattofiat: newWalletExchangeFiattofiat(c),
 	}
+}
+
+type WalletExchangeCryptotocrypto struct {
+	c *Client
+	External *WalletExchangeCryptotocryptoExternal
+	Wallet *WalletExchangeCryptotocryptoWallet
 }
 
 func newWalletExchangeCryptotocrypto(c *Client) *WalletExchangeCryptotocrypto {
 	return &WalletExchangeCryptotocrypto{
-		c:        c,
+		c: c,
 		External: newWalletExchangeCryptotocryptoExternal(c),
+		Wallet: newWalletExchangeCryptotocryptoWallet(c),
 	}
+}
+
+type WalletExchangeCryptotocryptoExternal struct {
+	c *Client
+	Bridge *WalletExchangeCryptotocryptoExternalBridge
+	Swap *WalletExchangeCryptotocryptoExternalSwap
 }
 
 func newWalletExchangeCryptotocryptoExternal(c *Client) *WalletExchangeCryptotocryptoExternal {
 	return &WalletExchangeCryptotocryptoExternal{
-		c:      c,
+		c: c,
 		Bridge: newWalletExchangeCryptotocryptoExternalBridge(c),
-		Swap:   newWalletExchangeCryptotocryptoExternalSwap(c),
+		Swap: newWalletExchangeCryptotocryptoExternalSwap(c),
 	}
+}
+
+type WalletExchangeCryptotocryptoExternalBridge struct {
+	c *Client
+	Usdc *WalletExchangeCryptotocryptoExternalBridgeUsdc
 }
 
 func newWalletExchangeCryptotocryptoExternalBridge(c *Client) *WalletExchangeCryptotocryptoExternalBridge {
 	return &WalletExchangeCryptotocryptoExternalBridge{
-		c:    c,
+		c: c,
 		Usdc: newWalletExchangeCryptotocryptoExternalBridgeUsdc(c),
 	}
+}
+
+type WalletExchangeCryptotocryptoExternalBridgeUsdc struct {
+	c *Client
 }
 
 func newWalletExchangeCryptotocryptoExternalBridgeUsdc(c *Client) *WalletExchangeCryptotocryptoExternalBridgeUsdc {
@@ -837,17 +1010,40 @@ func newWalletExchangeCryptotocryptoExternalBridgeUsdc(c *Client) *WalletExchang
 	}
 }
 
+type WalletExchangeCryptotocryptoExternalSwap struct {
+	c *Client
+}
+
 func newWalletExchangeCryptotocryptoExternalSwap(c *Client) *WalletExchangeCryptotocryptoExternalSwap {
 	return &WalletExchangeCryptotocryptoExternalSwap{
 		c: c,
 	}
 }
 
+type WalletExchangeCryptotocryptoWallet struct {
+	c *Client
+}
+
+func newWalletExchangeCryptotocryptoWallet(c *Client) *WalletExchangeCryptotocryptoWallet {
+	return &WalletExchangeCryptotocryptoWallet{
+		c: c,
+	}
+}
+
+type WalletExchangeCryptotofiat struct {
+	c *Client
+	External *WalletExchangeCryptotofiatExternal
+}
+
 func newWalletExchangeCryptotofiat(c *Client) *WalletExchangeCryptotofiat {
 	return &WalletExchangeCryptotofiat{
-		c:        c,
+		c: c,
 		External: newWalletExchangeCryptotofiatExternal(c),
 	}
+}
+
+type WalletExchangeCryptotofiatExternal struct {
+	c *Client
 }
 
 func newWalletExchangeCryptotofiatExternal(c *Client) *WalletExchangeCryptotofiatExternal {
@@ -856,11 +1052,20 @@ func newWalletExchangeCryptotofiatExternal(c *Client) *WalletExchangeCryptotofia
 	}
 }
 
+type WalletExchangeFiattocrypto struct {
+	c *Client
+	Wallet *WalletExchangeFiattocryptoWallet
+}
+
 func newWalletExchangeFiattocrypto(c *Client) *WalletExchangeFiattocrypto {
 	return &WalletExchangeFiattocrypto{
-		c:      c,
+		c: c,
 		Wallet: newWalletExchangeFiattocryptoWallet(c),
 	}
+}
+
+type WalletExchangeFiattocryptoWallet struct {
+	c *Client
 }
 
 func newWalletExchangeFiattocryptoWallet(c *Client) *WalletExchangeFiattocryptoWallet {
@@ -869,11 +1074,20 @@ func newWalletExchangeFiattocryptoWallet(c *Client) *WalletExchangeFiattocryptoW
 	}
 }
 
+type WalletExchangeFiattofiat struct {
+	c *Client
+	Wallet *WalletExchangeFiattofiatWallet
+}
+
 func newWalletExchangeFiattofiat(c *Client) *WalletExchangeFiattofiat {
 	return &WalletExchangeFiattofiat{
-		c:      c,
+		c: c,
 		Wallet: newWalletExchangeFiattofiatWallet(c),
 	}
+}
+
+type WalletExchangeFiattofiatWallet struct {
+	c *Client
 }
 
 func newWalletExchangeFiattofiatWallet(c *Client) *WalletExchangeFiattofiatWallet {
@@ -882,24 +1096,42 @@ func newWalletExchangeFiattofiatWallet(c *Client) *WalletExchangeFiattofiatWalle
 	}
 }
 
+type WalletMpwt struct {
+	c *Client
+}
+
 func newWalletMpwt(c *Client) *WalletMpwt {
 	return &WalletMpwt{
 		c: c,
 	}
 }
 
+type WalletTransfer struct {
+	c *Client
+	Cross *WalletTransferCross
+	Direct *WalletTransferDirect
+}
+
 func newWalletTransfer(c *Client) *WalletTransfer {
 	return &WalletTransfer{
-		c:      c,
-		Cross:  newWalletTransferCross(c),
+		c: c,
+		Cross: newWalletTransferCross(c),
 		Direct: newWalletTransferDirect(c),
 	}
+}
+
+type WalletTransferCross struct {
+	c *Client
 }
 
 func newWalletTransferCross(c *Client) *WalletTransferCross {
 	return &WalletTransferCross{
 		c: c,
 	}
+}
+
+type WalletTransferDirect struct {
+	c *Client
 }
 
 func newWalletTransferDirect(c *Client) *WalletTransferDirect {
@@ -1077,103 +1309,379 @@ func (s *OmnichainStorage) Upload(body map[string]any) (map[string]any, error) {
 }
 
 func (s *OmnichainTokenizationErc1155) Balance(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/balance", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/balance", body, true)
 }
 
 func (s *OmnichainTokenizationErc1155) Burn(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/burn", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/burn", body, true)
 }
 
 func (s *OmnichainTokenizationErc1155) Deploy(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/deploy", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationErc1155) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/info", body, true)
 }
 
 func (s *OmnichainTokenizationErc1155) Mint(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/mint", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/mint", body, true)
 }
 
 func (s *OmnichainTokenizationErc1155) Transactions(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/transactions", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/transactions", body, true)
 }
 
 func (s *OmnichainTokenizationErc1155) Transfer(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc1155/transfer", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Allowance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/allowance", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Approve(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/approve", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Balance(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/balance", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/balance", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Burn(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/burn", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/burn", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Chains(body map[string]any) (map[string]any, error) {
-	return s.c.Request("GET", "omnichain/tokenization/erc20/chains", body, true)
+	return s.c.Request("GET", "omnichain/tokenization/standards/erc20/chains", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Deploy(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/deploy", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) FreezeStatus(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/freeze-status", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/info", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Lock(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/lock", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Mint(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/mint", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/mint", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Pause(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/pause", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Transactions(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/transactions", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/transactions", body, true)
 }
 
 func (s *OmnichainTokenizationErc20) Transfer(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc20/transfer", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Unlock(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/unlock", body, true)
+}
+
+func (s *OmnichainTokenizationErc20) Unpause(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/unpause", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Balance(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/balance", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/balance", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Burn(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/burn", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/burn", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Deploy(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/deploy", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationErc721) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/info", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Mint(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/mint", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/mint", body, true)
+}
+
+func (s *OmnichainTokenizationErc721) OwnerOf(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/owner-of", body, true)
+}
+
+func (s *OmnichainTokenizationErc721) TokenUri(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/token-uri", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Transactions(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/transactions", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/transactions", body, true)
 }
 
 func (s *OmnichainTokenizationErc721) Transfer(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/erc721/transfer", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformAsset) Details(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/asset/details", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformAsset) Register(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/asset/register", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformAudit) Export(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/audit/export", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) Cancel(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/cancel", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) Create(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/create", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) Execute(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/execute", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) Fund(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/fund", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) List(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/list", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformDvp) Status(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/dvp/status", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformEvents) List(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/events/list", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformFx) Execute(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/fx/execute", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformFx) Quote(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/fx/quote", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformOps) DeadLetters(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/ops/dead-letters", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformOps) Replay(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/ops/replay", body, true)
+}
+
+func (s *OmnichainTokenizationPlatformReconciliation) Run(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/platform/reconciliation/run", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Balance(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/balance", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/balance", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Burn(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/burn", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/burn", body, true)
+}
+
+func (s *OmnichainTokenizationSep41) Chains(body map[string]any) (map[string]any, error) {
+	return s.c.Request("GET", "omnichain/tokenization/standards/sep41/chains", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Deploy(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/deploy", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/deploy", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Mint(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/mint", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/mint", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Transactions(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/transactions", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/transactions", body, true)
 }
 
 func (s *OmnichainTokenizationSep41) Transfer(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "omnichain/tokenization/sep41/transfer", body, true)
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Balance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/balance", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Burn(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/burn", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Deploy(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/info", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Mint(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/mint", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Transactions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/transactions", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc1155) Transfer(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc1155/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Allowance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/allowance", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Approve(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/approve", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Balance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/balance", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Burn(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/burn", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Chains(body map[string]any) (map[string]any, error) {
+	return s.c.Request("GET", "omnichain/tokenization/standards/erc20/chains", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Deploy(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) FreezeStatus(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/freeze-status", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/info", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Lock(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/lock", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Mint(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/mint", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Pause(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/pause", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Transactions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/transactions", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Transfer(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Unlock(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/unlock", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc20) Unpause(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc20/unpause", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Balance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/balance", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Burn(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/burn", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Deploy(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/info", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Mint(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/mint", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) OwnerOf(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/owner-of", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) TokenUri(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/token-uri", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Transactions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/transactions", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsErc721) Transfer(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/erc721/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Balance(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/balance", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Burn(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/burn", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Chains(body map[string]any) (map[string]any, error) {
+	return s.c.Request("GET", "omnichain/tokenization/standards/sep41/chains", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Deploy(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/deploy", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Mint(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/mint", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Transactions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/transactions", body, true)
+}
+
+func (s *OmnichainTokenizationStandardsSep41) Transfer(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/standards/sep41/transfer", body, true)
+}
+
+func (s *OmnichainTokenizationSystem) Capabilities(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/system/capabilities", body, true)
+}
+
+func (s *OmnichainTokenizationSystem) Status(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/system/status", body, true)
+}
+
+func (s *OmnichainTokenizationSystem) Transactions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/tokenization/system/transactions", body, true)
 }
 
 func (s *OmnichainWalletEvmEoa) Balance(body map[string]any) (map[string]any, error) {
@@ -1218,6 +1726,22 @@ func (s *OmnichainWalletEvmEoaTransfer) NativeToken(body map[string]any) (map[st
 
 func (s *OmnichainWalletEvmEoaTransfer) Stablecoin(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "omnichain/wallet/evm/eoa/transfer/stablecoin", body, true)
+}
+
+func (s *OmnichainWalletPolicy) Approvals(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/wallet/policy/approvals", body, true)
+}
+
+func (s *OmnichainWalletPolicy) Approve(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/wallet/policy/approve", body, true)
+}
+
+func (s *OmnichainWalletPolicy) Create(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/wallet/policy/create", body, true)
+}
+
+func (s *OmnichainWalletPolicy) Evaluate(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "omnichain/wallet/policy/evaluate", body, true)
 }
 
 func (s *OmnichainWalletStellarEoa) Balance(body map[string]any) (map[string]any, error) {
@@ -1278,6 +1802,22 @@ func (s *SimulationDirectDebit) Status(body map[string]any) (map[string]any, err
 
 func (s *SimulationTransfer) InitiatedOrder(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "simulation/transfer/initiated-order", body, true)
+}
+
+func (s *SystemMerchantProductSetting) Add(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "system/merchant/product-setting/add", body, true)
+}
+
+func (s *SystemMerchantProductSetting) Delete(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "system/merchant/product-setting/delete", body, true)
+}
+
+func (s *SystemMerchantProductSetting) Update(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "system/merchant/product-setting/update", body, true)
+}
+
+func (s *SystemMerchantProductSetting) View(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "system/merchant/product-setting/view", body, true)
 }
 
 func (s *UserAccountBusiness) Create(body map[string]any) (map[string]any, error) {
@@ -1368,6 +1908,10 @@ func (s *UserVerification) SingleProcess(body map[string]any) (map[string]any, e
 	return s.c.Request("POST", "user/verification/single-process", body, true)
 }
 
+func (s *Verification) Info(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "verification/info", body, true)
+}
+
 func (s *Verification) Lookup(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "verification/lookup", body, true)
 }
@@ -1386,6 +1930,38 @@ func (s *Wallet) Transactions(body map[string]any) (map[string]any, error) {
 
 func (s *Wallet) Update(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "wallet/update", body, true)
+}
+
+func (s *WalletChannelBankAccount) Details(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/details", body, true)
+}
+
+func (s *WalletChannelBankAccount) Generate(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/generate", body, true)
+}
+
+func (s *WalletChannelBankAccount) Resubscribe(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/resubscribe", body, true)
+}
+
+func (s *WalletChannelBankAccount) SupportedCurrencies(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/supported-currencies", body, true)
+}
+
+func (s *WalletChannelBankAccount) SupportedInstitutions(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/supported-institutions", body, true)
+}
+
+func (s *WalletChannelBankAccountComplianceRequest) List(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/compliance-request/list", body, true)
+}
+
+func (s *WalletChannelBankAccountComplianceRequest) Refresh(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/compliance-request/refresh", body, true)
+}
+
+func (s *WalletChannelBankAccountComplianceRequest) Respond(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/channel/bank-account/compliance-request/respond", body, true)
 }
 
 func (s *WalletChannelTransferRecipientBank) Add(body map[string]any) (map[string]any, error) {
@@ -1454,26 +2030,6 @@ func (s *WalletChannelTransferRecipientWalletAddress) Add(body map[string]any) (
 
 func (s *WalletChannelTransferRecipientWalletAddress) Details(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "wallet/channel/transfer-recipient/wallet-address/details", body, true)
-}
-
-func (s *WalletChannelVirtualAccount) Details(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "wallet/channel/virtual-account/details", body, true)
-}
-
-func (s *WalletChannelVirtualAccount) Generate(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "wallet/channel/virtual-account/generate", body, true)
-}
-
-func (s *WalletChannelVirtualAccount) Resubscribe(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "wallet/channel/virtual-account/resubscribe", body, true)
-}
-
-func (s *WalletChannelVirtualAccount) SupportedCurrencies(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "wallet/channel/virtual-account/supported-currencies", body, true)
-}
-
-func (s *WalletChannelVirtualAccount) SupportedInstitutions(body map[string]any) (map[string]any, error) {
-	return s.c.Request("POST", "wallet/channel/virtual-account/supported-institutions", body, true)
 }
 
 func (s *WalletChannelWalletAddress) Details(body map[string]any) (map[string]any, error) {
@@ -1590,6 +2146,18 @@ func (s *WalletExchangeCryptotocryptoExternalSwap) Status(body map[string]any) (
 
 func (s *WalletExchangeCryptotocryptoExternalSwap) SupportedPairs(body map[string]any) (map[string]any, error) {
 	return s.c.Request("POST", "wallet/exchange/cryptotocrypto/external/swap/supported-pairs", body, true)
+}
+
+func (s *WalletExchangeCryptotocryptoWallet) Fees(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/exchange/cryptotocrypto/wallet/fees", body, true)
+}
+
+func (s *WalletExchangeCryptotocryptoWallet) Initiate(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/exchange/cryptotocrypto/wallet/initiate", body, true)
+}
+
+func (s *WalletExchangeCryptotocryptoWallet) SupportedPairs(body map[string]any) (map[string]any, error) {
+	return s.c.Request("POST", "wallet/exchange/cryptotocrypto/wallet/supported-pairs", body, true)
 }
 
 func (s *WalletExchangeCryptotofiatExternal) Fees(body map[string]any) (map[string]any, error) {

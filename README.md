@@ -1,47 +1,22 @@
-# MoiPayWay Go SDK
+# MoiPayWay SDK
+
+Official merchant REST SDK. Environments: `test` → `https://dev.moipayway.co`, `live` → `https://api.moipayway.co`.
+
+API reference: [https://documenter.getpostman.com/view/11919136/2sBYHXPdcb](https://documenter.getpostman.com/view/11919136/2sBYHXPdcb)
+
+Collection paths become nested methods (example):
+
+- `POST wallet/create` → client `wallet.create`
+- `POST wallet/collection/initiate` → client `wallet.collection.initiate`
+- `POST omnichain/tokenization/standards/erc20/deploy` → client `omnichain.tokenization.standards.erc20.deploy`
+
+Deprecated flat tokenization paths (`omnichain/tokenization/erc20/...`) remain as aliases and call the `/standards/` routes.
 
 ```bash
-go get github.com/mpwsocial/go
+go get github.com/mpwsocial/go@v0.2.0
 ```
 
 ```go
-package main
-
-import (
-	"log"
-	"os"
-
-	moipayway "github.com/mpwsocial/go"
-)
-
-func main() {
-	client, err := moipayway.New(os.Getenv("MOIPAYWAY_API_KEY"), "test")
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	wallet, err := client.Wallet.Create(map[string]any{
-		"code": "NGN",
-		"meta": map[string]any{"name": "Operations", "user_id": "user-uuid"},
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	log.Println(wallet)
-}
-```
-
-Collection paths are methods on the client:
-
-- `POST wallet/create` → `client.Wallet.Create(body)`
-- `POST wallet/collection/initiate` → `client.Wallet.Collection.Initiate(body)`
-- `POST user/account/individual/create` → `client.User.Account.Individual.Create(body)`
-- `GET user/misc/job-types` → `client.User.Misc.JobTypes(nil)`
-- `POST verification/lookup` → `client.Verification.Lookup(body)`
-- `POST omnichain/wallet/evm/eoa/create-wallet` → `client.Omnichain.Wallet.Evm.Eoa.CreateWallet(body)`
-
-`test` uses `https://dev.moipayway.co`. `live` uses `https://api.moipayway.co`.
-
-```go
-ok := moipayway.VerifyWebhook(rawBody, signatureHeader, timestampHeader, apiKey, 300)
+client, err := moipayway.New(os.Getenv("MOIPAYWAY_API_KEY"), "test")
+wallet, err := client.Wallet.Create(map[string]any{"code": "NGN", "meta": map[string]any{"name": "Ops", "user_id": "user-uuid"}})
 ```
